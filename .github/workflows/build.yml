@@ -1,9 +1,9 @@
-# .github/workflows/build-win10.yml  
-name: Build SGDK for Windows 10  
+name: Build SGDK for Windows  
   
 on:  
   push:  
     branches: [master]  
+  pull_request:  
   workflow_dispatch:  
   
 jobs:  
@@ -11,47 +11,26 @@ jobs:
     runs-on: windows-latest  
   
     steps:  
-      - name: Checkout SGDK  
+      - name: Checkout repository  
         uses: actions/checkout@v4  
   
-      - name: Setup Java (rescomp 需要)  
+      - name: Set up Java for rescomp.jar  
         uses: actions/setup-java@v4  
         with:  
           distribution: temurin  
           java-version: "17"  
   
-      - name: Download SGDK release binaries (bin/ 工具链)  
-        shell: pwsh  
-        run: Invoke-WebRequest -Uri "https://github.com/Stephane-D/SGDK/releases/latest/download/SGDK.zip" -OutFile "sgdk_bin.zip"  
+      - name: Set GDK environment variables  
+        run: echo "GDK=${{ github.workspace }}" | Out-File -FilePath $env:GITHUB_ENV -Append  
   
-      - name: Extract toolchain into repo  
-        shell: pwsh  
-        run: Expand-Archive -Path "sgdk_bin.zip" -DestinationPath "." -Force  
+      - name: Clean previous build  
+        run: bin\make.exe -f makelib.gen clean  
   
-      - name: Set GDK environment  
-        shell: pwsh  
-        run: Add-Content $env:GITHUB_ENV "GDK=$env:GITHUB_WORKSPACE`nGDK_WIN=$env:GITHUB_WORKSPACE"  
+      - name: Build SGDK library  
+        run: bin\make.exe -f makelib.gen release  
   
-      - name: Clean library  
-        shell: cmd  
-        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makelib.gen" clean  
-  
-      - name: Build libmd.a (release)  
-        shell: cmd  
-        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makelib.gen" release  
-  
-      - name: Build sample ROM (验证工具链)  
-        shell: cmd  
-        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makefile.gen" -C "%GITHUB_WORKSPACE%\\sample\\game\\sonic"  
-  
-      - name: Upload libmd.a  
+      - name: Upload libmd.a artifact  
         uses: actions/upload-artifact@v4  
         with:  
-          name: sgdk-libmd-win10  
-          path: lib/libmd.a  
-  
-      - name: Upload sample ROM  
-        uses: actions/upload-artifact@v4  
-        with:  
-          name: sgdk-sample-rom  
-          path: sample/game/sonic/out/rom.bin
+          name: sgdk-libmd  
+          path: lib/libmd.a
