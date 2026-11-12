@@ -1,0 +1,57 @@
+# .github/workflows/build-win10.yml  
+name: Build SGDK for Windows 10  
+  
+on:  
+  push:  
+    branches: [master]  
+  workflow_dispatch:  
+  
+jobs:  
+  build:  
+    runs-on: windows-latest  
+  
+    steps:  
+      - name: Checkout SGDK  
+        uses: actions/checkout@v4  
+  
+      - name: Setup Java (rescomp 需要)  
+        uses: actions/setup-java@v4  
+        with:  
+          distribution: temurin  
+          java-version: "17"  
+  
+      - name: Download SGDK release binaries (bin/ 工具链)  
+        shell: pwsh  
+        run: Invoke-WebRequest -Uri "https://github.com/Stephane-D/SGDK/releases/latest/download/SGDK.zip" -OutFile "sgdk_bin.zip"  
+  
+      - name: Extract toolchain into repo  
+        shell: pwsh  
+        run: Expand-Archive -Path "sgdk_bin.zip" -DestinationPath "." -Force  
+  
+      - name: Set GDK environment  
+        shell: pwsh  
+        run: Add-Content $env:GITHUB_ENV "GDK=$env:GITHUB_WORKSPACE`nGDK_WIN=$env:GITHUB_WORKSPACE"  
+  
+      - name: Clean library  
+        shell: cmd  
+        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makelib.gen" clean  
+  
+      - name: Build libmd.a (release)  
+        shell: cmd  
+        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makelib.gen" release  
+  
+      - name: Build sample ROM (验证工具链)  
+        shell: cmd  
+        run: "%GITHUB_WORKSPACE%\\bin\\make" -f "%GITHUB_WORKSPACE%\\makefile.gen" -C "%GITHUB_WORKSPACE%\\sample\\game\\sonic"  
+  
+      - name: Upload libmd.a  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: sgdk-libmd-win10  
+          path: lib/libmd.a  
+  
+      - name: Upload sample ROM  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: sgdk-sample-rom  
+          path: sample/game/sonic/out/rom.bin
